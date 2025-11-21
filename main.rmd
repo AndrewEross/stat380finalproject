@@ -1,1 +1,33 @@
+---
+title: "STAT380 Final Project"
+author: "Andrew Eross, Owen Wassel, Jack Messina, Khang Le"
+date: "2025-11-20"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Front Matter
+```{r}
+remove(list = ls())
+library(tidyverse)
+library(caret)
+library(pROC)
+library(ggplot2)
+library(dplyr)
+library(readxl)
+library(lubridate)
+library(FNN)
+```
+
+## Read in Datasets
+
+```{r}
+CODGameModes <- read.csv("~/Documents/GitHub/stat380finalproject/CODGameModes.csv")
+CODGames1 <- read.csv("~/Documents/GitHub/stat380finalproject/CODGames_p1_380.csv")
+CODGames2 <- read.csv("~/Documents/GitHub/stat380finalproject/CODGames_p2_380.csv")
+
+```
 
