@@ -2,7 +2,9 @@
 title: "STAT380 Final Project"
 author: "Andrew Eross, Owen Wassel, Jack Messina, Khang Le"
 date: "2025-11-20"
-output: html_document
+output:
+  pdf_document: default
+  html_document: default
 ---
 
 ```{r setup, include=FALSE}
@@ -10,6 +12,7 @@ knitr::opts_chunk$set(echo = TRUE)
 ```
 
 ## Front Matter
+
 ```{r}
 remove(list = ls())
 library(tidyverse)
@@ -31,3 +34,110 @@ CODGames2 <- read.csv("~/Documents/GitHub/stat380finalproject/CODGames_p2_380.cs
 
 ```
 
+## Task 1
+
+### Combine Player 1 and Player 2 Data
+
+```{r}
+# Add a Player ID and stack both datasets
+
+games_all <- bind_rows(
+CODGames1 %>% mutate(Player = "Player1"),
+CODGames2 %>% mutate(Player = "Player2")
+)
+
+dim(games_all)
+head(games_all)
+
+
+
+```
+### Clean GameType (merge HC variants with base modes)
+```{r}
+# Look at raw GameType values
+
+unique(games_all$GameType)
+
+# Remove "HC -", "HC –", etc. and map hardcore versions to base mode
+
+games_all <- games_all %>%
+mutate(
+GameType_clean = stringr::str_replace(
+GameType,
+"HC[[:space:]]*[-–][[:space:]]*",
+""
+)
+)
+
+unique(games_all$GameType_clean)
+
+
+
+```
+### Join with CODGameModes to bring in ScoreLimit and TimeLimit
+```{r}
+
+games_split <- games_all %>%
+  # Join with game mode metadata
+  left_join(CODGameModes, by = c("GameType_clean" = "Mode")) %>%
+  
+  # Split Result into team & opponent scores
+  separate(Result, into = c("TeamScore", "OpponentScore"), 
+           sep = "-", remove = FALSE) %>%
+  
+  mutate(
+    TeamScore = as.numeric(TeamScore),
+    OpponentScore = as.numeric(OpponentScore)
+  )
+
+
+```
+
+### Create indicator: did the match reach the score limit?
+
+```{r}
+
+# Create a logical/0-1 variable for reaching the score limit
+games_split <- games_split %>%
+  mutate(
+    ReachedLimit = ifelse(TeamScore == ScoreLimit, 1, 0)
+  )
+
+
+# Sanity check
+
+table(games_split$ReachedLimit, useNA = "ifany")
+```
+### Summarize: proportion of matches that reach the score limit by game mode
+
+```{r}
+limit_summary <- games_split %>%
+  group_by(GameType_clean) %>%
+  summarise(
+    TotalMatches = n(),
+    Reached = sum(ReachedLimit, na.rm = TRUE),
+    ProportionReached = Reached / TotalMatches
+  ) %>%
+  arrange(desc(ProportionReached))
+
+limit_summary
+
+
+
+```
+### Visualization: bar plot of proportion reaching score limit
+```{r}
+ggplot(limit_summary,
+aes(x = reorder(GameType_clean, ProportionReached),
+y = ProportionReached)) +
+geom_col() +
+coord_flip() +
+labs(
+title = "Proportion of Matches Reaching Score Limit by Game Mode",
+x = "Game Mode",
+y = "Proportion Reaching Score Limit"
+) +
+theme_minimal()
+
+
+```
