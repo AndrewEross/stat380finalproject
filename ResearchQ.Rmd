@@ -15,6 +15,12 @@ knitr::opts_chunk$set(echo = TRUE)
 ```{r}
 remove(list = ls())
 library(readxl)
+library(dplyr)
+library(class)
+library(randomForest) 
+library(xgboost)
+library(caret)
+library(ggplot2)
 ```
 
 ## Read in Datasets
@@ -23,4 +29,23 @@ library(readxl)
 CODGameModes <- read.csv("~/Documents/GitHub/stat380finalproject/CODGameModes.csv")
 CODGames1 <- read.csv("~/Documents/GitHub/stat380finalproject/CODGames_p1_380.csv")
 CODGames2 <- read.csv("~/Documents/GitHub/stat380finalproject/CODGames_p2_380.csv")
+```
+
+## Research Question: Which classification method best predicts match outcome (win vs. loss) using gameplay statistics and match characteristics?
+
+### Classification Methods Used: XGBoost; kNN; Random Forest
+
+## Model 1: kNN
+```{r}
+
+```
+
+## Model 2: Random Forest
+```{r}
+
+```
+
+## Model 3: XGBoost
+```{r}
+
 ```
