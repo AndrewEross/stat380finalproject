@@ -37,6 +37,14 @@ CODGames2 <- read.csv("~/Documents/GitHub/stat380finalproject/CODGames_p2_380.cs
 ## Task 1
 
 ### Combine Player 1 and Player 2 Data
+```{r}
+dim(CODGames1)
+dim(CODGames2)
+head(CODGames1)
+```
+```{r}
+head(CODGameModes)
+```
 
 ```{r}
 # Add a Player ID and stack both datasets
@@ -115,10 +123,11 @@ limit_summary <- games_split %>%
   group_by(GameType_clean) %>%
   summarise(
     TotalMatches = n(),
-    Reached = sum(ReachedLimit, na.rm = TRUE),
-    ProportionReached = Reached / TotalMatches
+    ScoreReached = sum(ReachedLimit, na.rm = TRUE),
+    ProportionScoreReached = ScoreReached / TotalMatches
   ) %>%
-  arrange(desc(ProportionReached))
+  rename(GameType = GameType_clean) %>%
+  arrange(desc(ProportionScoreReached))
 
 limit_summary
 
@@ -128,9 +137,11 @@ limit_summary
 ### Visualization: bar plot of proportion reaching score limit
 ```{r}
 ggplot(limit_summary,
-aes(x = reorder(GameType_clean, ProportionReached),
-y = ProportionReached)) +
+aes(x = reorder(GameType, ProportionScoreReached),
+y = ProportionScoreReached, fill = GameType)) +
+geom_text(aes(label = round(ProportionScoreReached, 2)), hjust = -0.1) +
 geom_col() +
+ylim(0,.6) +
 coord_flip() +
 labs(
 title = "Proportion of Matches Reaching Score Limit by Game Mode",
@@ -138,6 +149,7 @@ x = "Game Mode",
 y = "Proportion Reaching Score Limit"
 ) +
 theme_minimal()
+
 
 
 ```
