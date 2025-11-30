@@ -141,3 +141,37 @@ theme_minimal()
 
 
 ```
+
+
+
+## Task 2
+
+```{r}
+# Select numeric predictors.
+numeric_vars <- games_split %>% select(where(is.numeric))
+
+# Keep numeric variables with at least 50% non-missing values.
+numeric_vars <- numeric_vars[, colMeans(!is.na(numeric_vars)) > 0.50]
+
+# Build modeling dataset containing TotalXP and usable numeric predictors.
+model_data <- games_split %>% select(TotalXP, all_of(colnames(numeric_vars))) %>% drop_na()
+
+# Remove predictors with near-zero variance.
+nzv <- nearZeroVar(model_data, saveMetrics = TRUE)
+model_data <- model_data[, !nzv$nzv]
+
+# Fit full linear regression model.
+full_model <- lm(TotalXP ~ ., data = model_data)
+summary(full_model)
+
+# Perform AIC-based stepwise model selection.
+step_model <- step(full_model, direction = "both", trace = FALSE)
+summary(step_model)
+
+# Extract significant predictors (p < 0.05).
+significant_predictors <- summary(step_model)$coefficients
+significant_predictors <- significant_predictors[significant_predictors[,4] < 0.05, ]
+significant_predictors
+
+
+```
