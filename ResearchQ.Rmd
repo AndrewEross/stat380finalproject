@@ -1,0 +1,26 @@
+---
+title: "ResearchQ"
+author: "Andrew Eross, Owen Wassel, Jack Messina, Khang Le"
+date: "2025-11-30"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+
+## Front Matter
+
+```{r}
+remove(list = ls())
+library(readxl)
+```
+
+## Read in Datasets
+
+```{r}
+CODGameModes <- read.csv("~/Documents/GitHub/stat380finalproject/CODGameModes.csv")
+CODGames1 <- read.csv("~/Documents/GitHub/stat380finalproject/CODGames_p1_380.csv")
+CODGames2 <- read.csv("~/Documents/GitHub/stat380finalproject/CODGames_p2_380.csv")
+```
