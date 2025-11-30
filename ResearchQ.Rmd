@@ -37,19 +37,6 @@ CODGames2 <- read.csv("~/Documents/GitHub/stat380finalproject/CODGames_p2_380.cs
 
 ## Data Wrangling
 
-### Combine Data
-```{r}
-CODGames <- bind_rows(CODGames1 %>% mutate(Player = "Player1"),
-                       CODGames2 %>% mutate(Player = "Player2"))
-```
-
-### Scale XP variables
-```{r}
-CODGamesScaled <- CODGames %>% 
-  mutate(ScaledXP = ifelse(XPType == "10% Boost", TotalXP / 1.1, TotalXP / 2.1)) %>% 
-  select(Eliminations, Deaths, Score, Damage, ScaledXP) %>% 
-  drop_na()
-```
 
 ## Model 1: kNN
 ```{r}
@@ -57,8 +44,34 @@ CODGamesScaled <- CODGames %>%
 ```
 
 ## Model 2: Random Forest
+### Combine Data
 ```{r}
+CODGames <- bind_rows(CODGames1 %>% mutate(Player = "Player1"),
+                       CODGames2 %>% mutate(Player = "Player2"))
+```
 
+### Determine Win/Loss
+```{r}
+CODGamesResults <- CODGames %>% 
+  extract(Result, into = c('TeamScore', 'OppScore'), regex = '([0-9]*)-([0-9]*)') %>%
+  mutate(Outcome = as.factor(ifelse(as.numeric(TeamScore) > as.numeric(OppScore), "Win", "Loss"))) %>% 
+  select(Eliminations, Deaths, Damage, Outcome) %>% 
+  drop_na()
+```
+
+### Train/Test Split
+```{r}
+set.seed(1103)
+inds <- sample(1:nrow(CODGamesResults), floor(.8*nrow(CODGamesResults)))
+set.seed(NULL)
+
+Train <- CODGamesScaled[inds, ]
+Test <- CODGamesScaled[-inds, ]
+```
+```{r}
+rf_model <- randomForest(Outcome ~ ., data = Train)
+rf_preds <- predict(rf_model, Test)
+confusionMatrix(rf_preds, Test$Outcome)
 ```
 
 ## Model 3: XGBoost
@@ -66,5 +79,6 @@ CODGamesScaled <- CODGames %>%
 
 
 ```
+
 
 
