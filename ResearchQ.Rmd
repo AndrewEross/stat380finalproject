@@ -35,10 +35,168 @@ CODGames2 <- read.csv("~/Documents/GitHub/stat380finalproject/CODGames_p2_380.cs
 
 ### Classification Methods Used: XGBoost; kNN; Random Forest
 
+## Data Prep
+```{r}
+games_all <- bind_rows(
+CODGames1 %>% mutate(Player = "Player1"),
+CODGames2 %>% mutate(Player = "Player2")
+)
+
+# Remove "HC -", "HC –", etc. and map hardcore versions to base mode
+
+games_all <- games_all %>%
+mutate(
+GameType_clean = stringr::str_replace(
+GameType,
+"HC[[:space:]]*[-–][[:space:]]*",
+""
+)
+)
+
+
+games_split <- games_all %>%
+  # Join with game mode metadata
+  left_join(CODGameModes, by = c("GameType_clean" = "Mode")) %>%
+  # Split Result into team & opponent scores
+  separate(Result, into = c("TeamScore", "OpponentScore"), 
+           sep = "-", remove = FALSE) %>%
+  filter(FullPartial == "Full") %>%
+  mutate(TeamScore = as.numeric(TeamScore),
+         OpponentScore = as.numeric(OpponentScore),
+         Result = case_when(
+           TeamScore == OpponentScore ~ 0,
+           TeamScore > OpponentScore ~ 1,
+           TeamScore < OpponentScore ~ 0,
+         )) %>%
+  filter(!is.na(Result))
+
+
+```
+
+```{r}
+winning_pct <- mean(games_split$Result)
+winning_pct
+```
+
+
 ## Model 1: kNN
 ```{r}
 
+set.seed(1103)
+inds <- sample(1:nrow(games_split), floor(.8*nrow(games_split)))
+set.seed(NULL)
+
+Train <- games_split[inds, ]
+Test <- games_split[-inds, ]
 ```
+
+```{r}
+games_split %>% summarize(num_na = sum(is.na(Result)))
+```
+
+```{r}
+
+xvars <- c("Eliminations", "Deaths", "Damage") 
+          
+#Initialize
+maxK <- 40
+mse_vec <- rep(NA, maxK)
+rmse_vec <- rep(NA, maxK)
+
+#Loop
+for(i in 2:maxK) {
+  #Build Model
+  knn_res <- knn.reg(train = Train[ , xvars, drop = FALSE],
+                   test = Test[ , xvars, drop = FALSE],
+                   y = Train$Result,
+                   k = i)
+  
+  #Find MSE
+  mse_vec[i] <- mean((Test$Result - knn_res$pred)^2)
+  
+  #Find RMSE
+  rmse_vec[i] <- sqrt(mse_vec[i])
+}
+
+rmse_vec
+```
+```{r}
+#Create storage data frame so we can use ggplot
+temp_df <- data.frame(k = 1:maxK, mse = mse_vec, rmse = rmse_vec)
+
+#Create plot
+ggplot(data = temp_df, mapping = aes(x = k, y = rmse)) +
+  geom_line() +
+  theme_minimal()
+
+head(temp_df %>% arrange(rmse), 5)
+```
+```{r}
+knn_res8 <- knn.reg(train = Train[ , xvars, drop = FALSE],
+                   test = Test[ , xvars, drop = FALSE],
+                   y = Train$Result,
+                   k = 8)
+
+pred_prob <- knn_res8$pred
+
+#Establish threshold
+threshold <- 0.555
+
+pred_win <- ifelse(pred_prob > threshold, 1, 0)
+
+# Create confusion matrix
+conf_mat <- table(Predicted = pred_win, Actual = Test$Result)
+conf_mat
+```
+```{r}
+accuracy = (42+50) / (42+50+34+20)
+
+accuracy
+
+precision = 50 / (50 + 20)
+precision
+
+sens <- 50 / (50 + 34)
+sens
+
+spec <- 42 / (42 + 20)
+spec
+```
+```{r}
+thresholds <- seq(1, 0, -0.01)
+TPR_vec <- rep(NA, length(thresholds))
+FPR_vec <- rep(NA, length(thresholds))
+
+for(i in 0:length(thresholds)){
+  
+  t = thresholds[i]
+  
+  #find values in conf matrix
+  TP <- sum(pred_prob > t & Test$Result == 1)
+  FN <- sum(pred_prob < t & Test$Result == 1)
+  TN <- sum(pred_prob < t & Test$Result == 0)
+  FP <- sum(pred_prob > t & Test$Result == 0)
+
+  #Find sensitivity
+  TPR_vec[i] <- TP / (TP + FN)
+  
+  #Find 1-specificity
+  FPR_vec[i] <- 1-(TN / (TN + FP))
+}
+
+roc_df <- data.frame(threshold = thresholds, TPR = TPR_vec, FPR = FPR_vec)
+```
+
+
+```{r}
+ggplot(data = roc_df, mapping = aes(x = FPR, y = TPR)) +
+  geom_line(color = "black") +
+  labs(x = "False Positive Rate (1 - Specificity)", y = "True Positive Rate (Sensitivity)", title = "Receiver Operating Characteristic (ROC) Curve") +
+  geom_abline(intercept=0,slope=1, color = "grey") +
+  theme_minimal()
+```
+
+
 
 ## Model 2: Random Forest
 ```{r}
