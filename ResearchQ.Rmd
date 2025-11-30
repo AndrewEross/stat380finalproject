@@ -35,6 +35,21 @@ CODGames2 <- read.csv("~/Documents/GitHub/stat380finalproject/CODGames_p2_380.cs
 
 ### Classification Methods Used: XGBoost; kNN; Random Forest
 
+## Data Wrangling
+
+### Combine Data
+```{r}
+CODGames <- bind_rows(CODGames1 %>% mutate(Player = "Player1"),
+                       CODGames2 %>% mutate(Player = "Player2"))
+```
+
+### Scale XP variables
+```{r}
+CODGames %>% 
+  mutate(ScaledXP = ifelse(XPType == "10% Boost", TotalXP / 1.1, TotalXP / 2.1)) %>% 
+  select(Eliminations, Deaths, Score, Damage, ScaledXP)
+```
+
 ## Model 1: kNN
 ```{r}
 
@@ -47,5 +62,6 @@ CODGames2 <- read.csv("~/Documents/GitHub/stat380finalproject/CODGames_p2_380.cs
 
 ## Model 3: XGBoost
 ```{r}
+
 
 ```
