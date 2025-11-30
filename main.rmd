@@ -23,6 +23,7 @@ library(dplyr)
 library(readxl)
 library(lubridate)
 library(FNN)
+library(xgboost)
 ```
 
 ## Read in Datasets
@@ -37,11 +38,13 @@ CODGames2 <- read.csv("~/Documents/GitHub/stat380finalproject/CODGames_p2_380.cs
 ## Task 1
 
 ### Combine Player 1 and Player 2 Data
+
 ```{r}
 dim(CODGames1)
 dim(CODGames2)
 head(CODGames1)
 ```
+
 ```{r}
 head(CODGameModes)
 ```
@@ -60,7 +63,9 @@ head(games_all)
 
 
 ```
+
 ### Clean GameType (merge HC variants with base modes)
+
 ```{r}
 # Look at raw GameType values
 
@@ -82,7 +87,9 @@ unique(games_all$GameType_clean)
 
 
 ```
+
 ### Join with CODGameModes to bring in ScoreLimit and TimeLimit
+
 ```{r}
 
 games_split <- games_all %>%
@@ -116,6 +123,7 @@ games_split <- games_split %>%
 
 table(games_split$ReachedLimit, useNA = "ifany")
 ```
+
 ### Summarize: proportion of matches that reach the score limit by game mode
 
 ```{r}
@@ -134,7 +142,9 @@ limit_summary
 
 
 ```
+
 ### Visualization: bar plot of proportion reaching score limit
+
 ```{r}
 ggplot(limit_summary,
 aes(x = reorder(GameType, ProportionScoreReached),
@@ -153,8 +163,6 @@ theme_minimal()
 
 
 ```
-
-
 
 ## Task 2
 
@@ -175,6 +183,7 @@ numeric_vars <- numeric_vars[, colMeans(!is.na(numeric_vars)) > 0.50]
 # Build modeling dataset containing TotalXP and usable numeric predictors.
 model_data <- scaled_games_split %>% select(ScaledXP, all_of(colnames(numeric_vars))) %>% drop_na()
 ```
+
 ```{r}
 model_data
 ```
@@ -185,11 +194,13 @@ nzv <- nearZeroVar(model_data, saveMetrics = TRUE)
 model_data <- model_data[, !nzv$nzv]
 model_data
 ```
+
 ```{r}
 # Fit full linear regression model.
 full_model <- lm(ScaledXP ~ ., data = model_data)
 summary(full_model)
 ```
+
 ```{r}
 # Perform AIC-based stepwise model selection.
 step_model <- step(full_model, direction = "both", trace = FALSE)
@@ -197,11 +208,63 @@ summary(step_model)
 ```
 
 ```{r}
-# Extract significant predictors (p < 0.05).
+# Extract significant predictors (p < 0.01).
 significant_predictors <- summary(step_model)$coefficients
 significant_predictors <- significant_predictors[significant_predictors[,4] < 0.01, ]
 significant_predictors
 ```
+
+## Task 3
+
+### Question : Which classification method best predicts match outcome (win vs. loss) using gameplay statistics and match characteristics?
+
+#### XGBoost
+```{r}
+## Create Win/Loss Variable
+games_split2 <- games_split %>%
+  separate(Result, into = c("TeamScore_raw", "OpponentScore_raw"),
+           sep = "-", remove = FALSE) %>%
+  mutate(
+    TeamScore_raw = as.numeric(TeamScore_raw),
+    OpponentScore_raw = as.numeric(OpponentScore_raw),
+    Win = ifelse(TeamScore_raw > OpponentScore_raw, 1, 0)
+  )
+
+##Build Classification Dataset 
+class_data <- games_split2 %>%
+  select(Win, Eliminations, Deaths, Score, Damage, TeamScore_raw, OpponentScore_raw) %>%
+  drop_na()
+
+class_data$Win <- factor(class_data$Win)
+
+##Train/Test Split
+set.seed(123)
+train_index <- createDataPartition(class_data$Win, p = 0.8, list = FALSE)
+train <- class_data[train_index, ]
+test  <- class_data[-train_index, ]
+
+## ---- Step 4: XGBoost Matrices ----
+train_x <- model.matrix(Win ~ . - 1, data = train)
+test_x  <- model.matrix(Win ~ . - 1, data = test)
+
+train_y <- as.numeric(train$Win) - 1
+test_y  <- as.numeric(test$Win) - 1
+
+##Fit XGBoost Model ----
+xgb_model <- xgboost(
+  data = train_x,
+  label = train_y,
+  nrounds = 100,
+  objective = "binary:logistic",
+  verbose = 0
+)
+
+## Predictions + Accuracy ----
+xgb_pred <- predict(xgb_model, test_x)
+xgb_class <- factor(ifelse(xgb_pred > 0.5, 1, 0))
+
+xgb_acc <- mean(xgb_class == test$Win)
+xgb_acc
 
 
 ```
