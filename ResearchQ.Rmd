@@ -45,9 +45,10 @@ CODGames <- bind_rows(CODGames1 %>% mutate(Player = "Player1"),
 
 ### Scale XP variables
 ```{r}
-CODGames <- CODGames %>% 
+CODGamesScaled <- CODGames %>% 
   mutate(ScaledXP = ifelse(XPType == "10% Boost", TotalXP / 1.1, TotalXP / 2.1)) %>% 
-  select(Eliminations, Deaths, Score, Damage, ScaledXP)
+  select(Eliminations, Deaths, Score, Damage, ScaledXP) %>% 
+  drop_na()
 ```
 
 ## Model 1: kNN
@@ -65,4 +66,5 @@ CODGames <- CODGames %>%
 
 
 ```
+
 
