@@ -21,6 +21,7 @@ library(randomForest)
 library(xgboost)
 library(caret)
 library(ggplot2)
+library(tidyr)
 ```
 
 ## Read in Datasets
@@ -79,6 +80,44 @@ confusionMatrix(rf_preds, Test$Outcome)
 ## Model 3: XGBoost
 ```{r}
 
+
+
+library(xgboost)
+library(pROC)
+library(caret)
+set.seed(1103)
+inds <- sample(1:nrow(CODGamesResults), floor(.8*nrow(CODGamesResults)))
+Train <- CODGamesResults[inds, ]
+Test  <- CODGamesResults[-inds, ]
+
+# Convert Outcome to numeric 1/0 for XGBoost
+Train$Outcome_num <- ifelse(Train$Outcome == "Win", 1, 0)
+Test$Outcome_num  <- ifelse(Test$Outcome == "Win", 1, 0)
+
+train_matrix <- model.matrix(Outcome_num ~ . - Outcome - 1, data = Train)
+test_matrix  <- model.matrix(Outcome_num ~ . - Outcome - 1, data = Test)
+
+train_y <- Train$Outcome_num
+test_y  <- Test$Outcome_num
+
+xgb_model <- xgboost(
+  data = train_matrix,
+  label = train_y,
+  nrounds = 200,
+  objective = "binary:logistic",
+  verbose = 0
+)
+
+
+xgb_prob  <- predict(xgb_model, test_matrix)
+xgb_class <- ifelse(xgb_prob > 0.5, 1, 0)
+
+
+xgb_class_fac <- factor(ifelse(xgb_class == 1, "Win", "Loss"))
+test_outcome_fac <- factor(ifelse(test_y == 1, "Win", "Loss"))
+
+cm <- confusionMatrix(xgb_class_fac, test_outcome_fac)
+cm
 
 ```
 
