@@ -68,6 +68,8 @@ set.seed(NULL)
 Train <- CODGamesScaled[inds, ]
 Test <- CODGamesScaled[-inds, ]
 ```
+
+### Train and test model
 ```{r}
 rf_model <- randomForest(Outcome ~ ., data = Train)
 rf_preds <- predict(rf_model, Test)
@@ -79,6 +81,7 @@ confusionMatrix(rf_preds, Test$Outcome)
 
 
 ```
+
 
 
 
