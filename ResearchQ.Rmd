@@ -90,7 +90,6 @@ inds <- sample(1:nrow(CODGamesResults), floor(.8*nrow(CODGamesResults)))
 Train <- CODGamesResults[inds, ]
 Test  <- CODGamesResults[-inds, ]
 
-# Convert Outcome to numeric 1/0 for XGBoost
 Train$Outcome_num <- ifelse(Train$Outcome == "Win", 1, 0)
 Test$Outcome_num  <- ifelse(Test$Outcome == "Win", 1, 0)
 
@@ -118,7 +117,19 @@ test_outcome_fac <- factor(ifelse(test_y == 1, "Win", "Loss"))
 
 cm <- confusionMatrix(xgb_class_fac, test_outcome_fac)
 cm
+xgb_roc <- roc(test_y, xgb_prob)
 
+# Plot ROC
+plot(
+  xgb_roc,
+  col = "black",
+  lwd = 2,
+  main = "XGBoost ROC Curve (Win vs Loss)"
+)
+abline(a = 0, b = 1, lty = 2, col = "gray")
+
+# Print AUC
+auc(xgb_roc)
 ```
 
 
