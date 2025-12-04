@@ -1,0 +1,122 @@
+---
+title: "Call Of Duty Data Analysis"
+author: "Andrew Eross, Owen Wassel, Jack Messina, Khang Le"
+date: "2025-12-02"
+output: pdf_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, warning=FALSE, message=FALSE)
+```
+
+
+
+## 1 Introduction
+
+Call of Duty is one of the most popular first person shooter games of all time. As a result, players from all over the world continue to play and try to improve their abilities to win more and more games. Today, we will be investigating the statistics of two Call of Duty Players, Player1 and Player2. We will also be diving into data from the different game modes of Call of Duty: Domination, Kill Confirmed, Hardpoint, and TDM. One of our goals is to learn more about what this data means, and most importantly want to answer some research objectives.
+
+The objectives are as follows:
+
+1. Which game mode is likely to reach the score limit?
+
+2. What variables are predictors of TotalXP?
+
+3. Predictive Match Outcome (Win/Loss)
+
+In this project, we will be applying various statistical methods to answer these questions/objectives with an emphasis on the predictive modeling techniques kNN, Random Forest, and XGBoost. Before we get into those more advanced techniques, we must first explore the data and do necessary wrangling/tidying in order to apply the methods we listed. Objectives 1 and 2 will serve as exploratory data analysis (EDA) objectives to get a solid understanding of the data we are working with to ensure a correct execution of kNN, Random Forest, and XGBoost. 
+
+
+## 2 Data Summary and Exploratory Data Analysis
+
+### 2.1 Variable Description
+
+There are a total of 3 datasets that we have and will be working with: Player1, Player2, and GameModes. First, let's explore the Player1 and Player2 datasets.
+
+Player1 and Player2 data are structured in a similar fashion and contain the same variables so it will be eaisest to observe them at the same time. The columns of these datasets represent match statistics and the rows represent each match the player participated in. These datasets contain the same amount of columns and statistic types, however Player1 has more rows meaning that they played more games than Player2. Each dataset contains 27 columns which is a lot of variables to work with, however a lot of them contain mostly null values so we will only be using a select amount of them. Those variables are: Choice, Result, Eliminations, Deaths, Score, Damage, and TotalXP.
+
+Now for the GameModes dataset, only 3 variables are listed: Mode, ScoreLimit, and TimeLimit. Obviously these variables tell us the score and time limit of each game
+mode. These variables will also be useful to explore each match with the score and time limit for reason of the match concluding.
+
+### 2.2 Exploratory Data Analysis
+
+We can now perform some exploratory data analysis (EDA) to find relationships with the Player data and game modes data. We will look into which game mode is likely to reach the score limit and what variables are predictors of TotalXP. 
+
+To discover which game mode is likely to reach the score limit, some data wrangling must be in order. We first combine the Player1 and Player2 data and add a PlayerID column to the merged dataset. Then, we clean the GameModes set by taking off the game modes that contain HC and combining them with their respecitve game types. For example, the HC - Kill Confirmed game type will be combined with Kill Confirmed. Next, we perform a join with the Game Modes data with the score and time limit variables. We do this because we want to create a score limit indicator and compare the match score. If these are equal, we yield a 1. Otherwise, 0. We can then calculate the proportions and display the results. The proportion of matches reaching score limit by game mode is shown in Figure 1 below.
+
+```{r  label = chart1, echo = FALSE, fig.cap = "Proportion of Matches Reaching Score Limit by Game Mode"}
+remove(list = ls())
+library(tidyverse)
+library(caret)
+library(pROC)
+library(ggplot2)
+library(dplyr)
+library(readxl)
+library(lubridate)
+library(FNN)
+library(xgboost)
+CODGameModes <- read.csv("~/Documents/GitHub/stat380finalproject/CODGameModes.csv")
+CODGames1 <- read.csv("~/Documents/GitHub/stat380finalproject/CODGames_p1_380.csv")
+CODGames2 <- read.csv("~/Documents/GitHub/stat380finalproject/CODGames_p2_380.csv")
+
+# Add a Player ID and stack both datasets
+
+games_all <- bind_rows(
+CODGames1 %>% mutate(Player = "Player1"),
+CODGames2 %>% mutate(Player = "Player2")
+)
+# Look at raw GameType values
+# Remove "HC -", "HC –", etc. and map hardcore versions to base mode
+
+games_all <- games_all %>%
+mutate(
+GameType_clean = stringr::str_replace(
+GameType,
+"HC[[:space:]]*[-–][[:space:]]*",
+""
+)
+)
+games_split <- games_all %>%
+  # Join with game mode metadata
+  left_join(CODGameModes, by = c("GameType_clean" = "Mode")) %>%
+  
+  # Split Result into team & opponent scores
+  separate(Result, into = c("TeamScore", "OpponentScore"), 
+           sep = "-", remove = FALSE) %>%
+  
+  mutate(
+    TeamScore = as.numeric(TeamScore),
+    OpponentScore = as.numeric(OpponentScore)
+  )
+
+# Create a logical/0-1 variable for reaching the score limit
+games_split <- games_split %>%
+  mutate(
+    ReachedLimit = ifelse(TeamScore == ScoreLimit, 1, 0)
+  )
+limit_summary <- games_split %>%
+  group_by(GameType_clean) %>%
+  summarise(
+    TotalMatches = n(),
+    ScoreReached = sum(ReachedLimit, na.rm = TRUE),
+    ProportionScoreReached = ScoreReached / TotalMatches
+  ) %>%
+  rename(GameType = GameType_clean) %>%
+  arrange(desc(ProportionScoreReached))
+ggplot(limit_summary,
+aes(x = reorder(GameType, ProportionScoreReached),
+y = ProportionScoreReached, fill = GameType)) +
+geom_text(aes(label = round(ProportionScoreReached, 2)), hjust = -0.1) +
+geom_col() +
+ylim(0,.6) +
+coord_flip() +
+labs(
+title = "Proportion of Matches Reaching Score Limit by Game Mode",
+x = "Game Mode",
+y = "Proportion Reaching Score Limit"
+) +
+theme_minimal()
+```
+
+Based on this visual, we can infer that Hardpoint matches are most likely to reach the score limit, and Kill Conformed matches are most likely to reach the time limit.
+
+
