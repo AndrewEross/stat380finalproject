@@ -140,3 +140,18 @@ theme_minimal()
 ```
 
 Based on this visual, we can infer that Hardpoint matches are most likely to reach the score limit since every one of their matches have reached the score limit. Kill Confirmed matches are most likely to reach the time limit. It is however important to note that there are only 14 Domination matches in the dataset, so it may not be completely fair to compare this percentage with TDM matches because there are more than 500 additional data points of TDM.
+
+### 3 Inference Modeling
+
+In past mini-projects related to Call of Duty matches, we experimented with creating models to predict a match's TotalXP - the player's number of experience points gained within each match based on the player's match performance. In this section, we will further build a model predicting a player's TotalXP in a match and highlight the most important predictors. This process requires additional data wrangling and model selection.
+
+First, we mutate the TotalXP variable to ScaledXP. The column "XPType" for the Player1 and Player2 datasets indicate the factor a player's raw XP is changed by resulting in their TotalXP. For example, matches are either "10% Boost" or "Double XP + 10% Boost." For 10% boosted matches, the raw XP (what the player actually earned) was multipled by 1.1 to calculate the player's TotalXP. Double XP + 10% Boost matches had raw XP multiplied by 2.1 to find TotalXP. We will calculate our variable ScaledXP by performing the respective inverse operations on TotalXP, so identical game stats for 10% boosted matches and double + boosted matches earn the same XP for the sake of our models all else equal.
+
+```{r}
+# Scale TotalXP based on XPType and remove partial games
+scaled_games_split <- games_split %>% 
+  mutate(ScaledXP = ifelse(XPType == "10% Boost", TotalXP / 1.1, TotalXP / 2.1)) %>%
+  filter(FullPartial == "Full")
+```
+
+
