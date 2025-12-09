@@ -119,4 +119,38 @@ theme_minimal()
 
 Based on this visual, we can infer that Hardpoint matches are most likely to reach the score limit, and Kill Conformed matches are most likely to reach the time limit.
 
+To accurately identify what variables are predictors of TotalXP, we must once again prepare our data. First, we scale TotalXP to ScaledXP which removes biases from Double XP + 10% matches. Then, remove partial games and select only numeric variables from combined Player1 and Player2 dataset which removes map choice, primary weapon, game mode. Next, we remove variables with 50% or more missing values (columns specific to a game mode such as Confirms and Denies). Finally we must see that variables with near-zero variance are removed, but for this case, did not remove any columns. Now that we prepared the data for the model, we can create the model that decides which variables best predict TotalXP.
+
+Our approach to identifying the best predictors involves using an AIC-based stepwise selection process. AIC is goodness-of-fit plus penalty for complexity. This algorithm valuates models by adding/removing predictors and chooses the combination with the lowest AIC, balancing predictive accuracy and model simplicity. Lower AIC values indicate a better model. Each additional predictor increases the penalty, so only variables that significantly improve fit (reduce deviance) are kept. We decided on this process because it provides an objective, numeric criterion for model comparison. For this process, each candidate model’s AIC is compared; a drop of 2+ points in AIC
+generally indicates a meaningfully better model, while increases signal overfitting. When all was said and done, we obtained a final model containing only the most important predictors of ScaledXP.
+
+The final variables we selected all yielded p-values less than 0.05, which we labeled as statistically significant:
+
+  - **TeamScore**
+  - **Eliminations**
+  - **Deaths**
+  - **Score**
+  - **Damage**
+  - **ReachedLimit**
+
+Let's look deeper into the Eliminations variable as a means of predicting TotalXP. All else equal, for an increase of one elimination, we expect on average for ScaledXP to increase by about 109.01 (~119.911 increase in TotalXP for 10% XP Boosted matches and ~228.921 increase in TotalXP for Double XP + 10% Boosted matches).
+
+## 3 Machine Learning Methods
+
+Before diving into our predictions for game outcome (win/loss), we must first establish some preliminary steps for a clean machine learning enviornment. The general process for each model (kNN, Random Forest, and XGBoost) is as follows:
+
+  - **Include only full matches**
+  - **Consider Draws as Losses**
+    - Indicator Variable as 1 for Wins, 0 for losses and draws
+    - Focus on winning percentage
+  - **Train/Test split of 80% to 20%**
+  - **Set Random Seed of 1103**
+  - **Set threshold for confusion matrix as 0.555**
+    - Equal to the true winning percentage of all matches between players
+    
+The variables included in each model were Eliminations, Deaths, and Damage. 
+
+### 3.1 k-Nearest Neighbors (kNN)
+
+kNN was used to classify and predict wins and losses based on the variables we decided on (Eliminations, Deaths, and Damage). We created a nearest neighbors model from k values of 1 through 40. We iterated through each value and chose the one that yielded the lowest RMSE value. In the end, k=8 yilded the lowest RMSE at 0.4836806. We can now use this k value to predict result of testing data and compare predicted probability of a win to threshold, creating confusion matrix
 
