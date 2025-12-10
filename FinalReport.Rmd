@@ -145,10 +145,13 @@ theme_minimal()
 
 Based on this visual, we can infer that Hardpoint matches are most likely to reach the score limit since every one of their matches have reached the score limit. Kill Confirmed matches are most likely to reach the time limit. It is however important to note that there are only 14 Domination matches in the dataset, so it may not be completely fair to compare this percentage with TDM matches because there are more than 500 additional data points of TDM.
 
-To accurately identify what variables are predictors of TotalXP, we must once again prepare our data. First, we scale TotalXP to ScaledXP which removes biases from Double XP + 10% matches. Then, remove partial games and select only numeric variables from combined Player1 and Player2 dataset which removes map choice, primary weapon, game mode. Next, we remove variables with 50% or more missing values (columns specific to a game mode such as Confirms and Denies). Finally we must see that variables with near-zero variance are removed, but for this case, did not remove any columns. Now that we prepared the data for the model, we can create the model that decides which variables best predict TotalXP.
+### 3 Inference Modeling
 
-Our approach to identifying the best predictors involves using an AIC-based stepwise selection process. AIC is goodness-of-fit plus penalty for complexity. This algorithm valuates models by adding/removing predictors and chooses the combination with the lowest AIC, balancing predictive accuracy and model simplicity. Lower AIC values indicate a better model. Each additional predictor increases the penalty, so only variables that significantly improve fit (reduce deviance) are kept. We decided on this process because it provides an objective, numeric criterion for model comparison. For this process, each candidate model’s AIC is compared; a drop of 2+ points in AIC
-generally indicates a meaningfully better model, while increases signal overfitting. When all was said and done, we obtained a final model containing only the most important predictors of ScaledXP.
+To accurately identify what variables are predictors of TotalXP, we must once again prepare our data. First, we mutate the TotalXP variable to ScaledXP. The column "XPType" for the Player1 and Player2 datasets indicate the factor a player's raw XP is changed by resulting in their TotalXP. For example, matches are either "10% Boost" or "Double XP + 10% Boost." For 10% boosted matches, the raw XP (what the player actually earned) was multipled by 1.1 to calculate the player's TotalXP. Double XP + 10% Boost matches had raw XP multiplied by 2.1 to find TotalXP. We will calculate our variable ScaledXP by performing the respective inverse operations on TotalXP, so identical game stats for 10% boosted matches and double + boosted matches earn the same XP for the sake of our models all else equal.
+
+After scaling XP, we remove partial games and select only numeric variables from combined Player1 and Player2 dataset which removes map choice, primary weapon, game mode. Next, we remove variables with 50% or more missing values (columns specific to a game mode such as Confirms and Denies). Finally we must see that variables with near-zero variance are removed, but for this case, did not remove any columns. Now that we prepared the data for the model, we can create the model that decides which variables best predict TotalXP.
+
+Our approach to identifying the best predictors involves using an AIC-based stepwise selection process. AIC is goodness-of-fit plus penalty for complexity. This algorithm valuates models by adding/removing predictors and chooses the combination with the lowest AIC, balancing predictive accuracy and model simplicity. Lower AIC values indicate a better model. Each additional predictor increases the penalty, so only variables that significantly improve fit (reduce deviance) are kept. We decided on this process because it provides an objective, numeric criterion for model comparison. For this process, each candidate model’s AIC is compared; a drop of 2+ points in AIC generally indicates a meaningfully better model, while increases signal overfitting. When all was said and done, we obtained a final model containing only the most important predictors of ScaledXP.
 
 The final variables we selected all yielded p-values less than 0.05, which we labeled as statistically significant:
 
@@ -161,7 +164,7 @@ The final variables we selected all yielded p-values less than 0.05, which we la
 
 Let's look deeper into the Eliminations variable as a means of predicting TotalXP. All else equal, for an increase of one elimination, we expect on average for ScaledXP to increase by about 109.01 (~119.911 increase in TotalXP for 10% XP Boosted matches and ~228.921 increase in TotalXP for Double XP + 10% Boosted matches).
 
-## 3 Machine Learning Methods
+## 4 Machine Learning Methods
 
 Before diving into our predictions for game outcome (win/loss), we must first establish some preliminary steps for a clean machine learning enviornment. The general process for each model (kNN, Random Forest, and XGBoost) is as follows:
 
