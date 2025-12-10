@@ -186,9 +186,9 @@ The variables included in each model were Eliminations, Deaths, and Damage. We d
 
 ### 3.1 k-Nearest Neighbors (kNN)
 
-kNN was used to classify and predict wins and losses based on the variables we decided on (Eliminations, Deaths, and Damage). We created a nearest neighbors model from k values of 1 through 40. We iterated through each value of nearest neighbors and chose the one that yielded the lowest RMSE value. In the end, k=8 yielded the lowest RMSE at 0.4836806. We can now use this k value to predict result of testing data and compare predicted probability of a win to threshold, creating confusion matrix.
+kNN was used to classify and predict wins and losses based on the variables we decided on (Eliminations, Deaths, and Damage). We created a nearest neighbors model from k values of 1 through 40. We iterated through each value of nearest neighbors and chose the one that yielded the lowest RMSE value. In the end, indicated by Figure 3, k=8 yielded the lowest RMSE at 0.4836806. We can now use this k value to predict result of testing data and compare predicted probability of a win to threshold, creating confusion matrix.
 
-```{r, echo = FALSE}
+```{r, label = chart3, echo = FALSE, fig.cap = "RMSEs by k Nearest Neighbors"}
 winning_pct <- mean(games_split$Result)
 
 set.seed(1103)
@@ -197,8 +197,6 @@ set.seed(NULL)
 
 Train <- games_split[inds, ]
 Test <- games_split[-inds, ]
-
-games_split %>% summarize(num_na = sum(is.na(Result)))
 
 xvars <- c("Eliminations", "Deaths", "Damage") 
           
@@ -230,6 +228,68 @@ temp_df <- data.frame(k = 1:maxK, mse = mse_vec, rmse = rmse_vec)
 ggplot(data = temp_df, mapping = aes(x = k, y = rmse)) +
   geom_line() +
   theme_minimal()
+```
 
-head(temp_df %>% arrange(rmse), 5)
+
+
+```{r}
+knn_res8 <- knn.reg(train = Train[ , xvars, drop = FALSE],
+                   test = Test[ , xvars, drop = FALSE],
+                   y = Train$Result,
+                   k = 8)
+
+pred_prob <- knn_res8$pred
+
+#Establish threshold
+threshold <- 0.555
+
+pred_win <- ifelse(pred_prob > threshold, 1, 0)
+
+# Create confusion matrix
+conf_mat <- table(Predicted = pred_win, Actual = Test$Result)
+conf_mat
+```
+```{r}
+accuracy = (42+50) / (42+50+34+20)
+
+accuracy
+
+precision = 50 / (50 + 20)
+precision
+
+sens <- 50 / (50 + 34)
+sens
+
+spec <- 42 / (42 + 20)
+spec
+```
+```{r}
+thresholds <- seq(1, 0, -0.01)
+TPR_vec <- rep(NA, length(thresholds))
+FPR_vec <- rep(NA, length(thresholds))
+
+for(i in 0:length(thresholds)){
+  
+  t = thresholds[i]
+  
+  #find values in conf matrix
+  TP <- sum(pred_prob > t & Test$Result == 1)
+  FN <- sum(pred_prob < t & Test$Result == 1)
+  TN <- sum(pred_prob < t & Test$Result == 0)
+  FP <- sum(pred_prob > t & Test$Result == 0)
+
+  #Find sensitivity
+  TPR_vec[i] <- TP / (TP + FN)
+  
+  #Find 1-specificity
+  FPR_vec[i] <- 1-(TN / (TN + FP))
+}
+
+roc_df <- data.frame(threshold = thresholds, TPR = TPR_vec, FPR = FPR_vec)
+
+ggplot(data = roc_df, mapping = aes(x = FPR, y = TPR)) +
+  geom_line(color = "black") +
+  labs(x = "False Positive Rate (1 - Specificity)", y = "True Positive Rate (Sensitivity)", title = "Receiver Operating Characteristic (ROC) Curve") +
+  geom_abline(intercept=0,slope=1, color = "grey") +
+  theme_minimal()
 ```
