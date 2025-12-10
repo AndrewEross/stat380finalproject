@@ -84,11 +84,15 @@ games_split <- games_all %>%
   # Split Result into team & opponent scores
   separate(Result, into = c("TeamScore", "OpponentScore"), 
            sep = "-", remove = FALSE) %>%
-  
-  mutate(
-    TeamScore = as.numeric(TeamScore),
-    OpponentScore = as.numeric(OpponentScore)
-  )
+  filter(FullPartial == "Full") %>%
+  mutate(TeamScore = as.numeric(TeamScore),
+         OpponentScore = as.numeric(OpponentScore),
+         Result = case_when(
+           TeamScore == OpponentScore ~ 0,
+           TeamScore > OpponentScore ~ 1,
+           TeamScore < OpponentScore ~ 0,
+         )) %>%
+  filter(!is.na(Result))
 
 # Create a logical/0-1 variable for reaching the score limit
 games_split <- games_split %>%
@@ -177,10 +181,55 @@ Before diving into our predictions for game outcome (win/loss), we must first es
   - **Set threshold for confusion matrix as 0.555**
     - Equal to the true winning percentage of all matches between players
     
-The variables included in each model were Eliminations, Deaths, and Damage. 
+The variables included in each model were Eliminations, Deaths, and Damage. We decided not to include TotalXP or Score in this model, because our intuition thought that these variables would be affected by winning or losing, meaning that winning increases score or XP, so it is not appropriate to consider these potential confounding variables.
+
 
 ### 3.1 k-Nearest Neighbors (kNN)
 
-kNN was used to classify and predict wins and losses based on the variables we decided on (Eliminations, Deaths, and Damage). We created a nearest neighbors model from k values of 1 through 40. We iterated through each value and chose the one that yielded the lowest RMSE value. In the end, k=8 yilded the lowest RMSE at 0.4836806. We can now use this k value to predict result of testing data and compare predicted probability of a win to threshold, creating confusion matrix
+kNN was used to classify and predict wins and losses based on the variables we decided on (Eliminations, Deaths, and Damage). We created a nearest neighbors model from k values of 1 through 40. We iterated through each value of nearest neighbors and chose the one that yielded the lowest RMSE value. In the end, k=8 yielded the lowest RMSE at 0.4836806. We can now use this k value to predict result of testing data and compare predicted probability of a win to threshold, creating confusion matrix.
+
+```{r, echo = FALSE}
+winning_pct <- mean(games_split$Result)
+
+set.seed(1103)
+inds <- sample(1:nrow(games_split), floor(.8*nrow(games_split)))
+set.seed(NULL)
+
+Train <- games_split[inds, ]
+Test <- games_split[-inds, ]
+
+games_split %>% summarize(num_na = sum(is.na(Result)))
+
+xvars <- c("Eliminations", "Deaths", "Damage") 
+          
+#Initialize
+maxK <- 40
+mse_vec <- rep(NA, maxK)
+rmse_vec <- rep(NA, maxK)
+
+#Loop
+for(i in 2:maxK) {
+  #Build Model
+  knn_res <- knn.reg(train = Train[ , xvars, drop = FALSE],
+                   test = Test[ , xvars, drop = FALSE],
+                   y = Train$Result,
+                   k = i)
+  
+  #Find MSE
+  mse_vec[i] <- mean((Test$Result - knn_res$pred)^2)
+  
+  #Find RMSE
+  rmse_vec[i] <- sqrt(mse_vec[i])
+}
 
 
+#Create storage data frame so we can use ggplot
+temp_df <- data.frame(k = 1:maxK, mse = mse_vec, rmse = rmse_vec)
+
+#Create plot
+ggplot(data = temp_df, mapping = aes(x = k, y = rmse)) +
+  geom_line() +
+  theme_minimal()
+
+head(temp_df %>% arrange(rmse), 5)
+```
