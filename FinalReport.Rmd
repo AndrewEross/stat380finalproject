@@ -39,11 +39,13 @@ mode. These variables will also be useful to explore each match with the score a
 
 ### 2.2 Exploratory Data Analysis
 
-We can now perform some exploratory data analysis (EDA) to find relationships with the Player data and game modes data. We will look into which game mode is likely to reach the score limit and what variables are predictors of TotalXP. 
+We can now perform some exploratory data analysis (EDA) to find relationships with the Player data and game modes data. We will look into which game mode is likely to reach the score limit and what variables are predictors of TotalXP.
 
-To discover which game mode is likely to reach the score limit, some data wrangling must be in order. We first combine the Player1 and Player2 data and add a PlayerID column to the merged dataset. Then, we clean the GameModes set by taking off the game modes that contain HC and combining them with their respecitve game types. For example, the HC - Kill Confirmed game type will be combined with Kill Confirmed. Next, we perform a join with the Game Modes data with the score and time limit variables. We do this because we want to create a score limit indicator and compare the match score. If these are equal, we yield a 1. Otherwise, 0. We can then calculate the proportions and display the results. The proportion of matches reaching score limit by game mode is shown in Figure 1 below.
+ 
 
-```{r  label = chart1, echo = FALSE, fig.cap = "Proportion of Matches Reaching Score Limit by Game Mode"}
+To discover which game mode is likely to reach the score limit, some data wrangling must be in order. We first combine the Player1 and Player2 data and add a PlayerID column to the merged dataset. Then, we clean the GameModes set by taking off the game modes that contain HC and combining them with their respective game types. For example, the HC - Kill Confirmed game type will be combined with Kill Confirmed. Figure 1 below displays the count of number of matches for each game mode.TDM (Team Deathmatch) has by far the most number of matches at 537, and Domination the least at 14
+
+```{r label = chart1, echo = FALSE, fig.cap = "Count of each Game Mode"}
 remove(list = ls())
 library(tidyverse)
 library(caret)
@@ -91,7 +93,7 @@ games_split <- games_all %>%
 # Create a logical/0-1 variable for reaching the score limit
 games_split <- games_split %>%
   mutate(
-    ReachedLimit = ifelse(TeamScore == ScoreLimit, 1, 0)
+    ReachedLimit = ifelse(TeamScore == ScoreLimit | OpponentScore == ScoreLimit , 1, 0)
   )
 limit_summary <- games_split %>%
   group_by(GameType_clean) %>%
@@ -102,12 +104,36 @@ limit_summary <- games_split %>%
   ) %>%
   rename(GameType = GameType_clean) %>%
   arrange(desc(ProportionScoreReached))
+
+
+ggplot(limit_summary,
+aes(x = reorder(GameType, TotalMatches),
+y = TotalMatches, fill = GameType)) +
+geom_text(aes(label = TotalMatches), hjust = -0.1) +
+geom_col() +
+ylim(0,550) +
+coord_flip() +
+labs(
+title = "Count of Matches by Game Mode",
+x = "Game Mode",
+y = "Number of Matches"
+) +
+theme_minimal()
+```
+
+
+
+Next, we perform a join with the Game Modes data with the score and time limit variables. We do this because we want to create a score limit indicator and compare the match score. If these are equal, we yield a 1. Otherwise, 0. We can then calculate the proportions and display the results. The proportion of matches reaching score limit by game mode is shown in Figure 2 below.
+
+
+
+```{r  label = chart2, echo = FALSE, fig.cap = "Proportion of Matches Reaching Score Limit by Game Mode"}
 ggplot(limit_summary,
 aes(x = reorder(GameType, ProportionScoreReached),
 y = ProportionScoreReached, fill = GameType)) +
 geom_text(aes(label = round(ProportionScoreReached, 2)), hjust = -0.1) +
 geom_col() +
-ylim(0,.6) +
+ylim(0,1) +
 coord_flip() +
 labs(
 title = "Proportion of Matches Reaching Score Limit by Game Mode",
@@ -117,7 +143,7 @@ y = "Proportion Reaching Score Limit"
 theme_minimal()
 ```
 
-Based on this visual, we can infer that Hardpoint matches are most likely to reach the score limit, and Kill Conformed matches are most likely to reach the time limit.
+Based on this visual, we can infer that Hardpoint matches are most likely to reach the score limit since every one of their matches have reached the score limit. Kill Confirmed matches are most likely to reach the time limit. It is however important to note that there are only 14 Domination matches in the dataset, so it may not be completely fair to compare this percentage with TDM matches because there are more than 500 additional data points of TDM.
 
 To accurately identify what variables are predictors of TotalXP, we must once again prepare our data. First, we scale TotalXP to ScaledXP which removes biases from Double XP + 10% matches. Then, remove partial games and select only numeric variables from combined Player1 and Player2 dataset which removes map choice, primary weapon, game mode. Next, we remove variables with 50% or more missing values (columns specific to a game mode such as Confirms and Denies). Finally we must see that variables with near-zero variance are removed, but for this case, did not remove any columns. Now that we prepared the data for the model, we can create the model that decides which variables best predict TotalXP.
 
