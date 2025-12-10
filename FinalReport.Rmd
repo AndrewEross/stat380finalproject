@@ -317,3 +317,9 @@ roc_df <- roc_df[order(roc_df$FPR), ]
 
 
 ### 4.2 (ENTER MODEL NAME)
+
+
+## 5 Conclusion
+
+In this project, we ran 3 different machine learning methods with differing results. Random Forest performed the best in terms of predicting match outcome (win/loss) and XGBoost performed the worst. Random Forest yielded an accuracy of 66.44% which is far better than simply a 50/50 chance at winning a match. Precision and sensitivity were not as high however with a result of 61.82% and 54.84% respectively. What really stood out in Random Forest was the specificity which yielded a 75%. This shows that the model does a really good job (relatively speaking) in identifying negative cases, in this case losses. The next best performing model was kNN. The accuracy was a little lower than the Random FOrest at 63.014%, but performed better in terms of precision and sensitivity at 71.43% and 59.52% respectively. Specificity was not far behind to Random Forest's 75% though with a 67.74%. Finally, XGBoost was the worst performing model in terms of accuracy across all 3 with a 60.49%. However, precision and sensitivity were higher than Random Forest at 65.79% and 56.63%. However, with relatively high specificity across the rest of the models, XGBoost had the lowest by a large margin at 56.62%.
+
