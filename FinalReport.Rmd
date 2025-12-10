@@ -249,7 +249,7 @@ pred_win <- ifelse(pred_prob > threshold, 1, 0)
 conf_mat <- table(Predicted = pred_win, Actual = Test$Result)
 conf_mat
 ```
-```{r}
+```{r, echo = FALSE}
 accuracy = (42+50) / (42+50+34+20)
 
 accuracy
@@ -263,7 +263,7 @@ sens
 spec <- 42 / (42 + 20)
 spec
 ```
-```{r}
+```{r, label = chart4, echo = FALSE, fig.cap = "ROC Curve for kNN"}
 thresholds <- seq(1, 0, -0.01)
 TPR_vec <- rep(NA, length(thresholds))
 FPR_vec <- rep(NA, length(thresholds))
@@ -287,9 +287,20 @@ for(i in 0:length(thresholds)){
 
 roc_df <- data.frame(threshold = thresholds, TPR = TPR_vec, FPR = FPR_vec)
 
+# Calculate AUC using trapezoidal rule
+auc <- sum(diff(roc_df$FPR) * (head(roc_df$TPR, -1) + tail(roc_df$TPR, -1)) / 2)
+
 ggplot(data = roc_df, mapping = aes(x = FPR, y = TPR)) +
   geom_line(color = "black") +
   labs(x = "False Positive Rate (1 - Specificity)", y = "True Positive Rate (Sensitivity)", title = "Receiver Operating Characteristic (ROC) Curve") +
   geom_abline(intercept=0,slope=1, color = "grey") +
+   annotate("text",
+           x = 0.6, y = 0.4,           # adjust position if needed
+           label = paste("AUC =", round(auc, 3)),
+           size = 5) +
   theme_minimal()
+
+roc_df <- roc_df[order(roc_df$FPR), ]
+
+
 ```
