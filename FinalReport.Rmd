@@ -315,26 +315,108 @@ ggplot(data = roc_df, mapping = aes(x = FPR, y = TPR)) +
 roc_df <- roc_df[order(roc_df$FPR), ]
 ```
 
+\newpage
+### 4.2 Random Forest
+Next, Random Forest was used to predict wins based on the same predictors (Eliminations, Deaths, and Damage). For this model, we created a single decision tree using the same random seed as before. Only a single decision tree was made because there were no methods used in the other two models to account for potential overfitting, such as k-fold cross validation. Before that model can be made, however, we must convert the Result variable into a factor with two levels. This ensures that the randomForest function creates a classification tree, rather than a regression tree. 
 
-### 4.2 (ENTER MODEL NAME)
+
+```{r, echo = FALSE}
+set.seed(1103)
+
+TrainRF <- Train %>% mutate(Result = as.factor(Result))
+TestRF <- Test %>% mutate(Result = as.factor(Result))
+
+rf_model <- randomForest(Result ~ Eliminations + Deaths + Damage, data = TrainRF)
+
+rf_preds <- predict(rf_model, TestRF)
+
+pred_probs <- predict(rf_model, TestRF, type = 'prob')[,1]
+
+conf_mat <- table(Predicted = rf_preds, Actual = TestRF$Result)
+kable(conf_mat, caption = "Confusion Matrix for Random Forest Model")
+```
+
+```{r, echo = FALSE}
+accuracy = (33+65) / (33+19+29+65)
+precision = 65 / (65 + 29)
+sens <- 65 / (65 + 19)
+spec <- 33 / (33 + 29)
+
+var_col <- c("Accuracy", "Precision", "Sensitivity", "Specificity")
+val_col <- c(accuracy, precision, sens, spec)
+
+metric_df <- data.frame(
+  Metric = var_col,
+  Value = val_col
+)
+
+kable(metric_df, digits = 3, caption = "Metric Table for Random Forest Model")
+```
+The random forest model produced an accuracy of 67.1%, which is slightly better than the kNN model. This model correctly predicts whether the player won or lost approximately 2/3 of the time. It was very effective at correctly identifying the games in which the player won (hence the high precision), however, it failed to identify true negatives, with a specificity (or negative predictive value) of 53.2%, essentially a coin flip.
+
+To futher look into this model, we will now evaluate the AUC of the ROC curve, just like we did for kNN. For this model, the AUC is 0.700, which is slightly better than kNN.
+
+```{r, label = chart5, echo = FALSE, fig.cap = "ROC Curve for Random Forest"}
+thresholds <- seq(1, 0, -0.01)
+TPR_vec <- rep(NA, length(thresholds))
+FPR_vec <- rep(NA, length(thresholds))
+
+pred_prob <- 1 - predict(rf_model, TestRF, type = 'prob')[,1]
+
+for(i in 0:length(thresholds)){
+  
+  t = thresholds[i]
+  
+  #find values in conf matrix
+  TP <- sum(pred_prob > t & TestRF$Result == 1)
+  FN <- sum(pred_prob < t & TestRF$Result == 1)
+  TN <- sum(pred_prob < t & TestRF$Result == 0)
+  FP <- sum(pred_prob > t & TestRF$Result == 0)
+
+  #Find sensitivity
+  TPR_vec[i] <- TP / (TP + FN)
+  
+  #Find 1-specificity
+  FPR_vec[i] <- 1-(TN / (TN + FP))
+}
+
+roc_df <- data.frame(threshold = thresholds, TPR = TPR_vec, FPR = FPR_vec)
+
+# Calculate AUC using trapezoidal rule
+auc <- sum(diff(roc_df$FPR) * (head(roc_df$TPR, -1) + tail(roc_df$TPR, -1)) / 2)
+
+ggplot(data = roc_df, mapping = aes(x = FPR, y = TPR)) +
+  geom_line(color = "black") +
+  labs(x = "False Positive Rate (1 - Specificity)", y = "True Positive Rate (Sensitivity)", title = "Receiver Operating Characteristic (ROC) Curve") +
+  geom_abline(intercept=0,slope=1, color = "grey") +
+   annotate("text",
+           x = 0.6, y = 0.4,           # adjust position if needed
+           label = paste("AUC =", round(auc, 3)),
+           size = 5) +
+  theme_minimal()
+
+roc_df <- roc_df[order(roc_df$FPR), ]
+```
 
 
+\newpage
 ## 5 Conclusion
 
-In this project, we ran 3 different machine learning methods with differing results. Random Forest performed the best in terms of predicting match outcome (win/loss) and XGBoost performed the worst. Random Forest yielded an accuracy of 66.44% which is far better than simply a 50/50 chance at winning a match. Precision and sensitivity were not as high however with a result of 61.82% and 54.84% respectively. What really stood out in Random Forest was the specificity which yielded a 75%. This shows that the model does a really good job (relatively speaking) in identifying negative cases, in this case losses. The next best performing model was kNN. The accuracy was a little lower than the Random FOrest at 63.014%, but performed better in terms of precision and sensitivity at 71.43% and 59.52% respectively. Specificity was not far behind to Random Forest's 75% though with a 67.74%. Finally, XGBoost was the worst performing model in terms of accuracy across all 3 with a 60.49%. However, precision and sensitivity were higher than Random Forest at 65.79% and 56.63%. However, with relatively high specificity across the rest of the models, XGBoost had the lowest by a large margin at 56.62%.
+In this project, we ran 3 different machine learning methods with differing results. Random Forest performed the best in terms of predicting match outcome (win/loss) and XGBoost performed the worst. Random Forest yielded an accuracy of 67.12% which is far better than simply a 50/50 chance at winning a match. Specificity was not as high however with a result of 53.23%. What really stood out in Random Forest was the sensitivity which yielded a 77.38%. This shows that the model does a really good job (relatively speaking) in identifying positive cases, in this case wins. The next best performing model was kNN. The accuracy was a little lower than the Random Forest at 63.014%, but performed better in terms of precision and specificity at 71.43% and 67.74% respectively. Sensitivity was far behind Random Forest's 77.38% though with a 59.52%. Finally, XGBoost was the worst performing model in terms of accuracy across all 3 with a 60.49%. However, specificity was higher than Random Forest at 56.62%. However, with relatively high precision across the rest of the models, XGBoost had the lowest at 65.79%.
 
-```{r, label = chart5, echo = FALSE, fig.cap = "Performance Metrics for DIfferent Methods"}
+```{r, label = chart6, echo = FALSE, fig.cap = "Performance Metrics for DIfferent Methods"}
 library(knitr)
 
 results <- data.frame(
   Method = c("Random Forest", "kNN", "XGBoost"),
-  Accuracy = c(0.6644, 0.63014, 0.6049),
-  Precision = c(0.6182, 0.7143, 0.6579),
-  Sensitivity = c(0.5484, 0.5952, 0.5663),
-  Specificity = c(0.7500, 0.6774, 0.5662)
+  Accuracy = c(0.6712, 0.63014, 0.6049),
+  Precision = c(0.6915, 0.7143, 0.6579),
+  Sensitivity = c(0.7738, 0.5952, 0.5663),
+  Specificity = c(0.5323, 0.6774, 0.5662)
 )
 
 kable(results, digits = 4, align = "lcccc",
       col.names = c("Method", "Accuracy", "Precision", "Sensitivity", "Specificity"))
 ```
+
 
