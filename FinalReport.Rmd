@@ -46,7 +46,7 @@ We can now perform some exploratory data analysis (EDA) to find relationships wi
 
 To discover which game mode is likely to reach the score limit, some data wrangling must be in order. We first combine the Player1 and Player2 data and add a PlayerID column to the merged dataset. Then, we clean the GameModes set by taking off the game modes that contain HC and combining them with their respective game types. For example, the HC - Kill Confirmed game type will be combined with Kill Confirmed. We also removed rows with NA values. Figure 1 below displays the count of number of matches for each game mode.TDM (Team Deathmatch) has by far the most number of matches at 474, and Domination the least at 14.
 
-```{r label = chart1, echo = FALSE, fig.cap = "Count of each Game Mode"}
+```{r label = chart1, echo = FALSE, fig.cap = "Count of each Game Mode", fig.height = 4}
 remove(list = ls())
 library(tidyverse)
 library(caret)
@@ -58,6 +58,7 @@ library(lubridate)
 library(FNN)
 library(xgboost)
 library(kableExtra)
+library(randomForest)
 CODGameModes <- read.csv("~/Documents/GitHub/stat380finalproject/CODGameModes.csv")
 CODGames1 <- read.csv("~/Documents/GitHub/stat380finalproject/CODGames_p1_380.csv")
 CODGames2 <- read.csv("~/Documents/GitHub/stat380finalproject/CODGames_p2_380.csv")
@@ -133,7 +134,7 @@ Next, we perform a join with the Game Modes data with the score and time limit v
 
 
 
-```{r  label = chart2, echo = FALSE, fig.cap = "Proportion of Matches Reaching Score Limit by Game Mode"}
+```{r  label = chart2, echo = FALSE, fig.cap = "Proportion of Matches Reaching Score Limit by Game Mode", fig.height = 4}
 ggplot(limit_summary,
 aes(x = reorder(GameType, ProportionScoreReached),
 y = ProportionScoreReached, fill = GameType)) +
@@ -192,7 +193,7 @@ The variables included in each model were Eliminations, Deaths, and Damage. We d
 
 kNN was used to classify and predict wins and losses based on the variables we decided on (Eliminations, Deaths, and Damage). We created a nearest neighbors model from k values of 1 through 40. We iterated through each value of nearest neighbors and chose the one that yielded the lowest RMSE value. In the end, indicated by Figure 3, k=8 yielded the lowest RMSE at 0.4836806.
 
-```{r, label = chart3, echo = FALSE, fig.cap = "RMSEs by k Nearest Neighbors"}
+```{r, label = chart3, echo = FALSE, fig.cap = "RMSEs by k Nearest Neighbors", fig.height = 4}
 winning_pct <- mean(games_split$Result)
 
 set.seed(1103)
@@ -275,7 +276,7 @@ The kNN model produces an accuracy of about 63%. This certainly is not great, bu
 Another metric computed for evaluating the model was the Area Under the Curve (AUC) for the model's Receiver Operating Characteristics (ROC) Curve, which connects True Positive Rate and True Negative Rate pairings at each threshold from 0 to 1. The line y = x is plotted to show a curve with an AUC of 0.50, which would represent a 50/50 prediction of win or loss. For this curve, our AUC was 0.659.
 
 
-```{r, label = chart4, echo = FALSE, fig.cap = "ROC Curve for kNN"}
+```{r, label = chart4, echo = FALSE, fig.cap = "ROC Curve for kNN", fig.height = 4}
 thresholds <- seq(1, 0, -0.01)
 TPR_vec <- rep(NA, length(thresholds))
 FPR_vec <- rep(NA, length(thresholds))
@@ -315,7 +316,6 @@ ggplot(data = roc_df, mapping = aes(x = FPR, y = TPR)) +
 roc_df <- roc_df[order(roc_df$FPR), ]
 ```
 
-\newpage
 ### 4.2 Random Forest
 Next, Random Forest was used to predict wins based on the same predictors (Eliminations, Deaths, and Damage). For this model, we created a single decision tree using the same random seed as before. Only a single decision tree was made because there were no methods used in the other two models to account for potential overfitting, such as k-fold cross validation. Before that model can be made, however, we must convert the Result variable into a factor with two levels. This ensures that the randomForest function creates a classification tree, rather than a regression tree. 
 
@@ -356,7 +356,7 @@ The random forest model produced an accuracy of 67.1%, which is slightly better 
 
 To futher look into this model, we will now evaluate the AUC of the ROC curve, just like we did for kNN. For this model, the AUC is 0.700, which is slightly better than kNN.
 
-```{r, label = chart5, echo = FALSE, fig.cap = "ROC Curve for Random Forest"}
+```{r, label = chart5, echo = FALSE, fig.cap = "ROC Curve for Random Forest", fig.height = 4}
 thresholds <- seq(1, 0, -0.01)
 TPR_vec <- rep(NA, length(thresholds))
 FPR_vec <- rep(NA, length(thresholds))
@@ -398,8 +398,6 @@ ggplot(data = roc_df, mapping = aes(x = FPR, y = TPR)) +
 roc_df <- roc_df[order(roc_df$FPR), ]
 ```
 
-
-\newpage
 ## 5 Conclusion
 
 In this project, we ran 3 different machine learning methods with differing results. Random Forest performed the best in terms of predicting match outcome (win/loss) and XGBoost performed the worst. Random Forest yielded an accuracy of 67.12% which is far better than simply a 50/50 chance at winning a match. Specificity was not as high however with a result of 53.23%. What really stood out in Random Forest was the sensitivity which yielded a 77.38%. This shows that the model does a really good job (relatively speaking) in identifying positive cases, in this case wins. The next best performing model was kNN. The accuracy was a little lower than the Random Forest at 63.014%, but performed better in terms of precision and specificity at 71.43% and 67.74% respectively. Sensitivity was far behind Random Forest's 77.38% though with a 59.52%. Finally, XGBoost was the worst performing model in terms of accuracy across all 3 with a 60.49%. However, specificity was higher than Random Forest at 56.62%. However, with relatively high precision across the rest of the models, XGBoost had the lowest at 65.79%.
@@ -418,5 +416,4 @@ results <- data.frame(
 kable(results, digits = 4, align = "lcccc",
       col.names = c("Method", "Accuracy", "Precision", "Sensitivity", "Specificity"))
 ```
-
 
