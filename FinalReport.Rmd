@@ -495,7 +495,7 @@ The XGBoost model achieved an accuracy of 62.96%, indicating that it correctly p
 
 In this project, we ran 3 different machine learning methods with differing results. Random Forest performed the best in terms of predicting match outcome (win/loss) and XGBoost performed the worst. Random Forest yielded an accuracy of 67.12% which is far better than simply a 50/50 chance at winning a match. Specificity was not as high however with a result of 53.23%. What really stood out in Random Forest was the sensitivity which yielded a 77.38%. This shows that the model does a really good job (relatively speaking) in identifying positive cases, in this case wins. The next best performing model was kNN. The accuracy was a little lower than the Random Forest at 63.014%, but performed better in terms of precision and specificity at 71.43% and 67.74% respectively. Sensitivity was far behind Random Forest's 77.38% though with a 59.52%. Finally, XGBoost was the worst performing model in terms of accuracy across all 3 with a 62.96%. However, specificity was higher than Random Forest at 64.56%. However, with relatively high precision across the rest of the models, XGBoost had the lowest at 61.45%.
 
-```{r, label = chart7, echo = FALSE, fig.cap = "Performance Metrics for DIfferent Methods"}
+```{r, label = chart7, echo = FALSE, fig.cap = "Performance Metrics for Different Methods"}
 library(knitr)
 
 results <- data.frame(
@@ -510,3 +510,6 @@ kable(results, digits = 4, align = "lcccc",
       col.names = c("Method", "Accuracy", "Precision", "Sensitivity", "Specificity"))
 ```
 
+## 6 AI Statement
+
+All group mates attest to utilizing generative AI (ChatGPT) to assist work throughout the project. AI usage was limited to debugging and not to create entire chunks of code. Each code chunk was created entirely by group members, but certain lines of code were fed into ChatGPT in case code was not outputting as expected, and then the code was modified with AI suggestions. Gen AI was used to assist group work and not to replace it.
