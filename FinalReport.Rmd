@@ -356,7 +356,7 @@ The random forest model produced an accuracy of 67.1%, which is slightly better 
 
 To futher look into this model, we will now evaluate the AUC of the ROC curve, just like we did for kNN. For this model, the AUC is 0.700, which is slightly better than kNN.
 
-```{r, label = chart5, echo = FALSE, fig.cap = "ROC Curve for Random Forest", fig.height = 4}
+```{r, label = chart5, echo = FALSE, fig.cap = "ROC Curve for Random Forest", fig.height = 4, fig.pos='H'}
 thresholds <- seq(1, 0, -0.01)
 TPR_vec <- rep(NA, length(thresholds))
 FPR_vec <- rep(NA, length(thresholds))
@@ -398,19 +398,112 @@ ggplot(data = roc_df, mapping = aes(x = FPR, y = TPR)) +
 roc_df <- roc_df[order(roc_df$FPR), ]
 ```
 
+
+### 4.3 XGBoost
+XGBoost (Extreme Gradient Boosting) is a boosting-based machine learning method that builds an ensemble of decision trees sequentially, where each new tree is trained to correct the errors of the previous ones. Because boosting can capture nonlinear relationships and complex interactions between predictors, we applied this method to classify match outcome (win vs. loss) using the same variables as the previous models: Eliminations, Deaths, and Damage.
+Before fitting the model, we converted the binary outcome into numeric form (1 = Win, 0 = Loss). We then created model matrices so that XGBoost could work with the numeric predictor set. The training/testing split and threshold setup remained consistent with kNN and Random Forest:
+Train/Test split = 80/20
+Random Seed = 1103
+Threshold = 0.555, equal to the true winning percentage
+Values above 0.555 were classified as wins, values below as losses
+We trained a binary logistic XGBoost model with 200 boosting rounds, allowing it to iteratively refine predictions by reducing classification error at each stage.
+Below is the confusion matrix for the XGBoost model, using the same threshold approach as the other methods:
+
+```{r, label=chart6,echo = FALSE,fig.cap = "ROC Curve for XGBoost", fig.height = 4}
+library(xgboost)
+library(pROC)
+library(caret)
+CODGames <- bind_rows(
+  CODGames1 %>% mutate(Player = "Player1"),
+  CODGames2 %>% mutate(Player = "Player2")
+)
+
+CODGamesResults <- CODGames %>% 
+  extract(Result, into = c('TeamScore', 'OppScore'), regex = '([0-9]+)-([0-9]+)') %>%
+  mutate(
+    TeamScore = as.numeric(TeamScore),
+    OppScore  = as.numeric(OppScore),
+    Outcome   = as.factor(ifelse(TeamScore > OppScore, "Win", "Loss"))
+  ) %>%
+  select(Eliminations, Deaths, Damage, Outcome) %>%
+  drop_na()
+
+set.seed(1103)
+inds <- sample(1:nrow(CODGamesResults), floor(.8*nrow(CODGamesResults)))
+Train <- CODGamesResults[inds, ]
+Test  <- CODGamesResults[-inds, ]
+
+# Convert outcome to numeric
+# Correct encoding:
+Train$Outcome_num <- ifelse(Train$Outcome == "Win", 1, 0)
+Test$Outcome_num  <- ifelse(Test$Outcome == "Win", 1, 0)
+
+# Matrices
+train_matrix <- model.matrix(Outcome_num ~ . - Outcome - 1, data = Train)
+test_matrix  <- model.matrix(Outcome_num ~ . - Outcome - 1, data = Test)
+
+train_y <- Train$Outcome_num
+test_y  <- Test$Outcome_num
+
+# Train model
+xgb_model <- xgboost(
+  data = train_matrix,
+  label = train_y,
+  nrounds = 200,
+  objective = "binary:logistic",
+  verbose = 0
+)
+
+# Predict p(win)
+xgb_prob <- predict(xgb_model, test_matrix)
+
+# Apply threshold
+threshold <- 0.555
+xgb_class <- ifelse(xgb_prob > threshold, 1, 0)
+
+# Factors
+xgb_class_fac <- factor(ifelse(xgb_class == 1, "Win", "Loss"))
+test_outcome_fac <- factor(ifelse(test_y == 1, "Win", "Loss"))
+
+# Confusion Matrix
+cm <- confusionMatrix(xgb_class_fac, test_outcome_fac)
+kable(cm$table, caption = "Corrected Confusion Matrix for XGBoost")
+
+# Metrics
+Accuracy    <- sum(diag(cm$table)) / sum(cm$table)
+Precision   <- cm$table["Win","Win"] / (cm$table["Win","Win"] + cm$table["Win","Loss"])
+Sensitivity <- cm$table["Win","Win"] / (cm$table["Win","Win"] + cm$table["Loss","Win"])
+Specificity <- cm$table["Loss","Loss"] / (cm$table["Loss","Loss"] + cm$table["Loss","Win"])
+
+metrics <- data.frame(
+  Metric = c("Accuracy", "Precision", "Sensitivity", "Specificity"),
+  Value  = round(c(Accuracy, Precision, Sensitivity, Specificity), 4)
+)
+kable(metrics, caption = "Corrected XGBoost Evaluation Metrics")
+
+# ROC / AUC
+xgb_roc <- roc(test_y, xgb_prob)
+plot(xgb_roc, main="Corrected ROC Curve"); abline(0,1)
+text(0.6, 0.2, paste("AUC =", round(auc(xgb_roc), 3)))
+
+
+```
+
+The XGBoost model achieved an accuracy of 62.96%, indicating that it correctly predicted match outcomes slightly better than chance. Both precision (61.45%) and specificity (61.45%) suggest that the model performs similarly when predicting losses, correctly identifying negative outcomes at a moderate rate. Meanwhile, the sensitivity (64.56%) shows that the model is somewhat better at identifying wins than losses and AUC score at 0.663. Overall, XGBoost provides a balanced but modest level of predictive performance, capturing some meaningful patterns in player statistics but not reaching the higher accuracy and sensitivity achieved by the Random Forest model.A likely reason XGBoost underperformed is the low dimensionality of the feature set (only Eliminations, Deaths, Damage), which limits the algorithm’s ability to capture complex interactions.
+
 ## 5 Conclusion
 
-In this project, we ran 3 different machine learning methods with differing results. Random Forest performed the best in terms of predicting match outcome (win/loss) and XGBoost performed the worst. Random Forest yielded an accuracy of 67.12% which is far better than simply a 50/50 chance at winning a match. Specificity was not as high however with a result of 53.23%. What really stood out in Random Forest was the sensitivity which yielded a 77.38%. This shows that the model does a really good job (relatively speaking) in identifying positive cases, in this case wins. The next best performing model was kNN. The accuracy was a little lower than the Random Forest at 63.014%, but performed better in terms of precision and specificity at 71.43% and 67.74% respectively. Sensitivity was far behind Random Forest's 77.38% though with a 59.52%. Finally, XGBoost was the worst performing model in terms of accuracy across all 3 with a 60.49%. However, specificity was higher than Random Forest at 56.62%. However, with relatively high precision across the rest of the models, XGBoost had the lowest at 65.79%.
+In this project, we ran 3 different machine learning methods with differing results. Random Forest performed the best in terms of predicting match outcome (win/loss) and XGBoost performed the worst. Random Forest yielded an accuracy of 67.12% which is far better than simply a 50/50 chance at winning a match. Specificity was not as high however with a result of 53.23%. What really stood out in Random Forest was the sensitivity which yielded a 77.38%. This shows that the model does a really good job (relatively speaking) in identifying positive cases, in this case wins. The next best performing model was kNN. The accuracy was a little lower than the Random Forest at 63.014%, but performed better in terms of precision and specificity at 71.43% and 67.74% respectively. Sensitivity was far behind Random Forest's 77.38% though with a 59.52%. Finally, XGBoost was the worst performing model in terms of accuracy across all 3 with a 62.96%. However, specificity was higher than Random Forest at 64.56%. However, with relatively high precision across the rest of the models, XGBoost had the lowest at 61.45%.
 
-```{r, label = chart6, echo = FALSE, fig.cap = "Performance Metrics for DIfferent Methods"}
+```{r, label = chart7, echo = FALSE, fig.cap = "Performance Metrics for DIfferent Methods"}
 library(knitr)
 
 results <- data.frame(
   Method = c("Random Forest", "kNN", "XGBoost"),
-  Accuracy = c(0.6712, 0.63014, 0.6049),
-  Precision = c(0.6915, 0.7143, 0.6579),
-  Sensitivity = c(0.7738, 0.5952, 0.5663),
-  Specificity = c(0.5323, 0.6774, 0.5662)
+  Accuracy = c(0.6712, 0.63014, 0.6296),
+  Precision = c(0.6915, 0.7143, 0.6145),
+  Sensitivity = c(0.7738, 0.5952, 0.6456),
+  Specificity = c(0.5323, 0.6774, 0.6456)
 )
 
 kable(results, digits = 4, align = "lcccc",
